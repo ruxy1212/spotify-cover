@@ -1,0 +1,6 @@
+pycaw
+sounddevice
+pygame
+psutil
+comtypes
+numpy
