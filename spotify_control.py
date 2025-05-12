@@ -8,13 +8,19 @@ from threading import Thread
 from collections import deque
 from threading import Event
 import tkinter as tk
+from tkinter import ttk 
 import pythoncom
 
 RUN_MONITOR = Event()
 monitor_thread = None
 # Configuration
 TARGET_APP = "Spotify.exe"  # Replace with your app's executable name (e.g., "firefox.exe")
-MP3_PATH = r"C:\laragon\www\sound-control\playback.mp3"  # Replace with your MP3 file path
+# MP3_PATH = r"C:\laragon\www\sound-control\playback.mp3"  # Replace with your MP3 file path
+MP3_OPTIONS = {
+    "Strong": r"C:\laragon\www\sound-control\playback.mp3",
+    "Soft": r"C:\laragon\www\sound-control\soft.mp3"
+}
+selected_mp3_label = "Strong"  # default selection
 SILENCE_THRESHOLD = 0.01  # Amplitude threshold for silence (adjust if needed)
 SILENCE_DURATION = 1.0  # Silence duration in seconds (1000ms)
 FADE_DURATION = 1.0  # Fade in/out duration in seconds
@@ -163,7 +169,8 @@ def main():
             set_volume(session, 0.0, FADE_DURATION)
             
             # Play MP3
-            mp3_thread = Thread(target=play_mp3_with_fade, args=(MP3_PATH, MP3_PLAY_DURATION, FADE_DURATION))
+            # mp3_thread = Thread(target=play_mp3_with_fade, args=(MP3_PATH, MP3_PLAY_DURATION, FADE_DURATION))
+            mp3_thread = Thread(target=play_mp3_with_fade, args=(MP3_OPTIONS[selected_mp3_label], MP3_PLAY_DURATION, FADE_DURATION))
             mp3_thread.start()
             
             # Wait for MP3 to finish
@@ -213,14 +220,44 @@ def on_leave_stop(event, button):
         button.config(bg="#f44336")  # Original red
 
 def create_gui():
+    global selected_mp3_label
     window = tk.Tk()
     window.title("Sound Monitor Controller")
-    window.geometry("300x300")
+    window.geometry("300x450")
     window.configure(bg="#2c2c2c")
 
     # Title with extra space above
     title = tk.Label(window, text="Spotify Cover", font=("Arial", 18, "bold"), bg="#2c2c2c", fg="#ffffff")
     title.pack(pady=(20, 10))  # Increased top padding
+
+    selection_label = tk.Label(window, text="Select Sound:", bg="#2c2c2c", fg="white", font=("Arial", 12))
+    selection_label.pack()
+    mp3_var = tk.StringVar(value="Strong")
+    mp3_dropdown = ttk.Combobox(window, textvariable=mp3_var, values=list(MP3_OPTIONS.keys()), state="readonly")
+    mp3_dropdown.pack(pady=(0, 10))
+
+    # When user selects a different sound
+    def on_selection_change(event):
+        global selected_mp3_label
+        selected_mp3_label = mp3_var.get()
+
+    mp3_dropdown.bind("<<ComboboxSelected>>", on_selection_change)
+
+    slider_label = tk.Label(window, text="Silence Duration (sec):", bg="#2c2c2c", fg="white", font=("Arial", 12))
+    slider_label.pack(pady=(5, 0))
+
+    # Slider widget
+    silence_slider = tk.Scale(window, from_=1.0, to=5.0, resolution=0.1, orient=tk.HORIZONTAL, length=200, bg="#2c2c2c", fg="white", troughcolor="#444", highlightthickness=0)
+    silence_slider.set(SILENCE_DURATION)
+    silence_slider.pack()
+
+    def on_slider_change(val):
+        global SILENCE_DURATION
+        global AUDIO_WINDOW
+        SILENCE_DURATION = float(val)
+        AUDIO_WINDOW = deque(maxlen=int(SILENCE_DURATION / CHECK_LOOP))
+
+    silence_slider.config(command=on_slider_change)
 
     # Status Label
     status_var = tk.StringVar(value="Not Listening")
